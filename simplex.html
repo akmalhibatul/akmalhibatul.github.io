@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metode Simplek - Hibatul Akmal - 211011400797</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 10px;
+            text-align: center;
+        }
+        .controls {
+            margin-bottom: 20px;
+        }
+        .controls input {
+            margin-right: 10px;
+        }
+        .step-table {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Metode Simplek - Hibatul Akmal - 211011400797</h1>
+
+    <div class="controls">
+        <label for="num-variables">Jumlah Variable :</label>
+        <input type="number" id="num-variables" value="2" min="1">
+
+        <label for="num-constraints">Jumlah Kendala :</label>
+        <input type="number" id="num-constraints" value="2" min="1">
+
+        <button onclick="generateTable()">Generate Table</button>
+    </div>
+
+    <div id="simplex-table"></div>
+    <div id="simplex-steps"></div>
+
+    <script>
+        function generateTable() {
+            const numVariables = parseInt(document.getElementById('num-variables').value);
+            const numConstraints = parseInt(document.getElementById('num-constraints').value);
+
+            const container = document.getElementById('simplex-table');
+            container.innerHTML = '';
+
+            const table = document.createElement('table');
+            const headerRow = document.createElement('tr');
+
+            headerRow.innerHTML = `<th>Batasan</th>`;
+            for (let i = 1; i <= numVariables; i++) {
+                headerRow.innerHTML += `<th>X${i}</th>`;
+            }
+            headerRow.innerHTML += `<th>RHS</th>`;
+            table.appendChild(headerRow);
+
+            for (let i = 1; i <= numConstraints; i++) {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td>Kendala ${i}</td>`;
+                for (let j = 1; j <= numVariables; j++) {
+                    row.innerHTML += `<td><input type='number' step='any' class='constraint-input' /></td>`;
+                }
+                row.innerHTML += `<td><input type='number' step='any' class='rhs-input' /></td>`;
+                table.appendChild(row);
+            }
+
+            const footerRow = document.createElement('tr');
+            footerRow.innerHTML = `<td>Tujuan</td>`;
+            for (let i = 1; i <= numVariables; i++) {
+                footerRow.innerHTML += `<td><input type='number' step='any' class='objective-input' /></td>`;
+            }
+            footerRow.innerHTML += `<td>Maximize</td>`;
+            table.appendChild(footerRow);
+
+            container.appendChild(table);
+
+            // Add header description
+            const description = document.createElement('p');
+            description.innerHTML = `<strong>Penjelasan Header:</strong> <br>
+                - X1, X2, ..., Xn: Variabel-variabel dalam masalah<br>
+                - RHS: Sisi Kanan dari setiap kendala<br>
+                - Objective: Koefisien untuk fungsi objektif`;
+            container.appendChild(description);
+
+            container.innerHTML += '<button onclick="solveSimplex()">Solve</button>';
+        }
+
+        function solveSimplex() {
+            const constraints = [];
+            const rhs = [];
+            const objective = [];
+            const numVariables = parseInt(document.getElementById('num-variables').value);
+            const numConstraints = parseInt(document.getElementById('num-constraints').value);
+
+            // Collect constraint values
+            let currentRow = [];
+            document.querySelectorAll('.constraint-input').forEach((input, index) => {
+                currentRow.push(parseFloat(input.value) || 0);
+                if ((index + 1) % numVariables === 0) {
+                    constraints.push(currentRow);
+                    currentRow = [];
+                }
+            });
+
+            // Collect RHS values
+            document.querySelectorAll('.rhs-input').forEach(input => {
+                rhs.push(parseFloat(input.value) || 0);
+            });
+
+            // Collect objective function values
+            document.querySelectorAll('.objective-input').forEach(input => {
+                objective.push(parseFloat(input.value) || 0);
+            });
+
+            // Check if inputs are valid
+            if (constraints.length === 0 || rhs.length === 0 || objective.length === 0) {
+                alert('Please fill in all the fields.');
+                return;
+            }
+
+            // Simplex Algorithm: Construct tableau
+            let tableau = [];
+
+            // Add constraints to tableau
+            for (let i = 0; i < numConstraints; i++) {
+                tableau.push([...constraints[i], 1, rhs[i]]);
+            }
+
+            // Add objective function to tableau
+            tableau.push([...objective.map(x => -x), 0, 0]);
+
+            const stepsContainer = document.getElementById('simplex-steps');
+            stepsContainer.innerHTML = '';
+
+            // Display initial tableau
+            stepsContainer.appendChild(createTableFromTableau(tableau, 'Table Awal'));
+
+            // Simplex algorithm: Perform pivoting
+            let solved = false;
+            let iteration = 0;
+            while (!solved) {
+                iteration++;
+
+                // Check if optimal
+                const lastRow = tableau[tableau.length - 1];
+                const pivotCol = lastRow.slice(0, -1).indexOf(Math.min(...lastRow.slice(0, -1)));
+                if (lastRow[pivotCol] >= 0) {
+                    solved = true;
+                    break;
+                }
+
+                // Find pivot row
+                let pivotRow = -1;
+                let minRatio = Infinity;
+                for (let i = 0; i < numConstraints; i++) {
+                    const ratio = tableau[i][tableau[i].length - 1] / tableau[i][pivotCol];
+                    if (ratio > 0 && ratio < minRatio) {
+                        minRatio = ratio;
+                        pivotRow = i;
+                    }
+                }
+
+                if (pivotRow === -1) {
+                    alert('Unbounded solution.');
+                    return;
+                }
+
+                // Perform pivot
+                const pivotValue = tableau[pivotRow][pivotCol];
+                for (let j = 0; j < tableau[pivotRow].length; j++) {
+                    tableau[pivotRow][j] /= pivotValue;
+                }
+
+                for (let i = 0; i < tableau.length; i++) {
+                    if (i !== pivotRow) {
+                        const factor = tableau[i][pivotCol];
+                        for (let j = 0; j < tableau[i].length; j++) {
+                            tableau[i][j] -= factor * tableau[pivotRow][j];
+                        }
+                    }
+                }
+
+                // Display current tableau
+                stepsContainer.appendChild(createTableFromTableau(tableau, `Iterasi  ${iteration}`));
+            }
+
+            // Display results
+            const result = tableau[tableau.length - 1][tableau[0].length - 1];
+            stepsContainer.appendChild(createTableFromTableau(tableau, 'Tabel Akhir'));
+            stepsContainer.innerHTML += `<p>Solusi optimal ditemukan : ${result}</p>`;
+        }
+
+       function createTableFromTableau(tableau, title) {
+    const container = document.createElement('div');
+    container.classList.add('step-table');
+
+    const heading = document.createElement('h3');
+    heading.innerText = title;
+    container.appendChild(heading);
+
+    const table = document.createElement('table');
+
+    // Add header row
+    const headerRow = document.createElement('tr');
+    for (let i = 0; i < tableau[0].length - 2; i++) {
+        headerRow.innerHTML += `<th>X${i + 1}</th>`; 
+    }
+    headerRow.innerHTML += `<th>Slack</th><th>RHS</th>`; 
+    table.appendChild(headerRow);
+
+    // Add table data
+    tableau.forEach(row => {
+        const tableRow = document.createElement('tr');
+        row.forEach(cell => {
+            const tableCell = document.createElement('td');
+            tableCell.innerText = parseFloat(cell.toFixed(2));
+            tableRow.appendChild(tableCell);
+        });
+        table.appendChild(tableRow);
+    });
+
+    container.appendChild(table);
+    return container;
+}
+
+
+
+    </script>
+</body>
+</html>
